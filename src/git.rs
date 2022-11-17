@@ -6,12 +6,6 @@ use log::{info, debug, warn};
 use crate::gerrit_if;
 use crate::gerrit_if::GerritUser;
 
-struct _GitUserGroup {
-    users: Vec<GerritUser>,
-    name: String,
-    is_unity: bool,
-}
-
 fn git_config_get_value(section : &str, option : &str) -> Result<String, String> {
     let name = format!("{}.{}", section, option);
     let cmd = vec!["git", "config", "--get", &*name];

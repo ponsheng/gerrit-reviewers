@@ -8,6 +8,7 @@ mod args;
 mod gerrit_if;
 mod git;
 mod os;
+mod local_list;
 
 // RUST_LOG=debug,info,warn
 
