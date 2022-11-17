@@ -4,8 +4,8 @@ use crate::gerrit_if;
 use crate::gerrit_if::GerritUser;
 
 pub struct GerritUserGroup {
-    users: Vec<GerritUser>,
-    name: String,
+    pub users: Vec<GerritUser>,
+    pub name: String,
 }
 
 pub fn get_groups() -> Vec<GerritUserGroup> {

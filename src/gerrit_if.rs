@@ -88,8 +88,8 @@ pub fn get_gerrit_change(args: Args) -> GerritChange {
 
     let change = GerritChange {
         // FIXME
-        conn: parse_gerrit_ssh_params_from_git_url(&args.url.unwrap()),
-        change_id: args.change.unwrap()
+        conn: parse_gerrit_ssh_params_from_git_url(&args.url.unwrap_or("git@github.com:ponsheng/gerrit-reviewers.git".to_string())),
+        change_id: args.change.unwrap_or("NA".to_string())
     };
     change
 }
@@ -129,7 +129,16 @@ fn parse_gerrit_ssh_params_from_git_url(remote_url: &str) -> GitUrl {
         };
     } else {
         // TODO Handle SCP-style addresses
-        panic!("Unreachable");
+        // e.g. git@github.com:ponsheng/gerrit-reviewers.git
+        ret = GitUrl {
+            // FIXME
+            scheme: "".to_string(),
+            username: None,
+            hostname: "".to_string(),
+            port: None,
+            project: "".to_string(),
+            raw: remote_url.to_string(),
+        };
     }
     
     // TODO Strip leading slash and trailing '.git' form project name

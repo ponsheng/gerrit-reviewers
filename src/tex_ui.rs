@@ -3,6 +3,7 @@ use std::io;
 use crate::gerrit_if;
 use crate::gerrit_if::{GerritChange, GerritUser, GitUrl};
 use crate::args::Args;
+use crate::groups;
 
 trait Option {
     fn action(&self, change: &GerritChange);
@@ -193,6 +194,24 @@ impl Option for AddFromCandidate {
     }
 }
 
+// ShowGroups
+struct ShowGroups;
+impl Option for ShowGroups {
+    fn action(&self, change: &GerritChange) {
+        let gs = groups::get_groups();
+
+        for g in gs {
+            println!("Group: {}", &g.name);
+            for u in &g.users {
+                println!("* {}", u.as_string());
+            }
+        }
+    }
+    fn get_desc(&self) -> &str {
+        "Show all groups"
+    }
+}
+
 
 pub fn init(arg: Args) {
     println!("Text UI init");
@@ -232,6 +251,7 @@ fn prompt(change: &GerritChange) -> bool {
     options.add(Box::new(ShowRecentReviews));
     options.add(Box::new(ShowRecentReviewers));
     options.add(Box::new(AddFromCandidate));
+    options.add(Box::new(ShowGroups));
 
     println!("---------------------");
     println!("Options:");
