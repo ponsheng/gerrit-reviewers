@@ -9,6 +9,8 @@ mod gerrit_if;
 mod git;
 mod os;
 mod groups;
+mod users;
+mod config;
 
 // RUST_LOG=debug,info,warn
 
@@ -55,17 +57,20 @@ fn list_reviewers() {
 
 fn _main() -> i32 {
 
-    usage();
+    //usage();
     let arg = args::parse();
     env_logger::Builder::new()
         .filter_level(arg.verbose.log_level_filter())
         .init();
-    //gerrit_if::init(arg);
-    tex_ui::init(arg);
+
+    let gerrit_ctx = gerrit_if::Gerrit::new();
+
+    let mut tex_ui = tex_ui::TexUI {
+        gerrit_ctx: gerrit_ctx,
+    };
+    tex_ui.start(arg);
     
     /*
-
-    let _git_dir = get_git_directories();
 
     let change_id = "I1db9608c85fe80b30ffa881b60968d9695a463ff";
     list_reviews();

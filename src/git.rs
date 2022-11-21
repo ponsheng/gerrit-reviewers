@@ -1,10 +1,11 @@
 
 use regex::Regex;
+use log::{debug, warn};
+use std::path::Path;
 
 use crate::os;
-use log::{info, debug, warn};
-use crate::gerrit_if;
-use crate::gerrit_if::GerritUser;
+//use crate::gerrit_if;
+//use crate::users::GerritUser;
 
 fn git_config_get_value(section : &str, option : &str) -> Result<String, String> {
     let name = format!("{}.{}", section, option);
@@ -41,16 +42,19 @@ pub fn get_remote_url(_remote : String) -> String {
 }
 
 
-fn get_git_directories() -> (String, String) {
+pub fn get_git_directories() -> Option<String> {
     let ret = os::run_command_exc(vec!["git", "rev-parse", "--show-toplevel", "--git-dir"]);
     match ret {
         Ok(s) => {
             let mut lines = s.split('\n');
-            let top_dir = lines.nth(0).expect("Vec out of bound").to_string();
-            let git_dir = lines.nth(1).expect("Vec out of bound").to_string();
-            (top_dir, git_dir)
+            let top_dir = lines.next().expect("Vec out of bound");
+            let git_dir = lines.next().expect("Vec out of bound");
+            let path = Path::new(top_dir).join(git_dir);
+            let path_str = path.to_str().unwrap().to_string();
+            Some(path_str)
         },
-        Err(_) => panic!("Cannot find .git directory")
+        //Err(_) => panic!("Cannot find .git directory")
+        Err(_) => None,
     }
 }
 
@@ -102,7 +106,7 @@ fn get_local_commit_change_id(git_ref: &str) -> Option<String> {
     }
 
     let mut ret = "".to_string();
-    for line in message.split('\n') {
+    for line in message.lines() {
         match re.captures(line) {
             Some(caps) => {
                 let id = caps.get(1).unwrap().as_str();

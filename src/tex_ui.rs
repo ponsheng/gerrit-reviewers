@@ -1,15 +1,22 @@
 use std::io;
+use log::{info, error};
 
 use crate::gerrit_if;
-use crate::gerrit_if::{GerritChange, GerritUser, GitUrl};
+use crate::gerrit_if::{GerritChange, GitUrl, Gerrit};
 use crate::args::Args;
 use crate::groups;
+use crate::users::GerritUser;
+use crate::config;
 
 trait Option {
     fn action(&self, change: &GerritChange);
     fn get_desc(&self) -> &str {
         ""
     }
+}
+
+pub struct TexUI {
+    pub gerrit_ctx: Gerrit,
 }
 
 // ShowCurReviewers
@@ -198,13 +205,25 @@ impl Option for AddFromCandidate {
 struct ShowGroups;
 impl Option for ShowGroups {
     fn action(&self, change: &GerritChange) {
-        let gs = groups::get_groups();
+        let configs = config::get_group_configs();
 
-        for g in gs {
-            println!("Group: {}", &g.name);
-            for u in &g.users {
-                println!("* {}", u.as_string());
+        let mut group_sum = 0;
+        for c in &configs {
+            if c.groups.len() == 0 {
+                continue;
             }
+            println!("Config: {}", &c.file_path);
+            for g in &c.groups {
+                group_sum += 1;
+                println!("* Group: {}", &g.name);
+                for u in &g.users {
+                    println!("  * {}", u.as_string());
+                }
+            }
+        }
+        
+        if group_sum == 0 {
+            error!("Get no group");
         }
     }
     fn get_desc(&self) -> &str {
@@ -212,17 +231,71 @@ impl Option for ShowGroups {
     }
 }
 
+// GenRandGroups
+struct GenRandGroups;
+impl Option for GenRandGroups {
+    fn action(&self, change: &GerritChange) {
+        let gs = groups::gen_rand_groups();
+        groups::write_config(gs);
+    }
 
-pub fn init(arg: Args) {
-    println!("Text UI init");
+    fn get_desc(&self) -> &str {
+        "Generate random user groups"
+    }
+}
 
-    let change = gerrit_if::get_gerrit_change(arg);
-    
-    // TODO loop prompt
-    loop {
-        let again = prompt(&change);
-        if !again {
-            break;
+impl TexUI {
+    pub fn start(&mut self, arg: Args) {
+        info!("Text UI init");
+
+        let change = gerrit_if::get_gerrit_change(arg);
+        
+        // TODO loop prompt
+        loop {
+            let again = self.prompt(&change);
+            if !again {
+                break;
+            }
+        }
+    }
+
+    fn prompt(&mut self, change: &GerritChange) -> bool {
+
+        let mut options = Options::new();
+
+        // Append the list
+        options.add(Box::new(ShowCurReviewers));
+        options.add(Box::new(AddReviewers));
+        options.add(Box::new(ClearReviewers));
+        options.add(Box::new(ShowRecentReviews));
+        options.add(Box::new(ShowRecentReviewers));
+        options.add(Box::new(AddFromCandidate));
+        options.add(Box::new(ShowGroups));
+        options.add(Box::new(GenRandGroups));
+
+        println!("---------------------");
+        println!("Options:");
+        for (pos, opt) in options.list.iter().enumerate() {
+            println!("  {}: {}", pos + 1, opt.get_desc());
+        }
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).expect("Failed to read line");
+
+        match input.trim().parse::<usize>() {
+            Ok(sel) => {
+                if sel <= options.list.len() {
+                    options.list[sel - 1].action(change);
+                    true
+                } else {
+                    println!("Invalid option");
+                    false
+                }
+            },
+            Err(_) => {
+                println!("Invalid input");
+                false
+            }
         }
     }
 }
@@ -230,6 +303,7 @@ pub fn init(arg: Args) {
 struct Options {
     list: Vec<Box<dyn Option>>,
 }
+
 impl Options {
     fn new() -> Self {
         Self {list: vec![]}
@@ -240,42 +314,4 @@ impl Options {
     }
 }
 
-fn prompt(change: &GerritChange) -> bool {
-
-    let mut options = Options::new();
-
-    // Append the list
-    options.add(Box::new(ShowCurReviewers));
-    options.add(Box::new(AddReviewers));
-    options.add(Box::new(ClearReviewers));
-    options.add(Box::new(ShowRecentReviews));
-    options.add(Box::new(ShowRecentReviewers));
-    options.add(Box::new(AddFromCandidate));
-    options.add(Box::new(ShowGroups));
-
-    println!("---------------------");
-    println!("Options:");
-    for (pos, opt) in options.list.iter().enumerate() {
-        println!("  {}: {}", pos + 1, opt.get_desc());
-    }
-
-    let mut input = String::new();
-    io::stdin().read_line(&mut input).expect("Failed to read line");
-
-    match input.trim().parse::<usize>() {
-        Ok(sel) => {
-            if sel <= options.list.len() {
-                options.list[sel - 1].action(change);
-                true
-            } else {
-                println!("Invalid option");
-                false
-            }
-        },
-        Err(_) => {
-            println!("Invalid input");
-            false
-        }
-    }
-}
 

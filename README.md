@@ -19,3 +19,6 @@ CLI tool to set gerrit reviewers easily
 - [ ] Store 
 
 - [ ] TUI
+
+- [ ] Group
+    - [ ] GerRevwGrp.toml

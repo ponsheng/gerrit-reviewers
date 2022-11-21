@@ -1,13 +1,14 @@
 //use std::str;
 use url::Url;
 use regex::Regex;
-use log::{debug};
+use log::{debug, info};
 use linked_hash_set::LinkedHashSet;
-use std::hash::{Hash, Hasher};
 
 use crate::os;
 use crate::git;
 use crate::args::Args;
+use crate::users::GerritUser;
+use crate::users;
 
 use serde_json::Value as Review;
 
@@ -28,68 +29,26 @@ pub struct GerritChange {
     pub change_id: String,
 }
 
-pub struct GerritUser {
-    pub email: String,
-    pub full_name: String,
-    pub username: String,
+pub struct Gerrit {
+    pub git_dir: String,
 }
-impl GerritUser {
-    pub fn as_string(&self) -> String {
-        let mut s = String::new();
-        if self.full_name.len() > 0 {
-            s.push_str(&self.full_name);
-        }
-        if self.username.len() > 0 {
-            if s.len() == 0 {
-                s.push_str(&self.username);
-            } else {
-                s.push_str(&format!("({})", self.username));
-            }
-        }
-        if self.email.len() > 0 {
-            s.push_str(&format!(" [{}]", self.email));
-        }
 
-        s
-    }
-
-    pub fn from_str(set_name: &str) -> GerritUser {
-        GerritUser {
-            username: set_name.to_string(),
-            email: String::new(),
-            full_name: String::new(),
+impl Gerrit {
+    pub fn new() -> Self {
+        let git_dir = git::get_git_directories().unwrap();
+        info!("Get git directory: {}", git_dir);
+        Self {
+            git_dir: git_dir,
         }
     }
 }
-impl Hash for GerritUser {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.username.hash(state);
-    }
-}
-impl PartialEq for GerritUser {
-    fn eq(&self, other: &Self) -> bool {
-        self.username.eq(&other.username)
-    }
-}
-impl Eq for GerritUser {}
-
-pub fn get_git_user(json_val: &serde_json::Value) -> GerritUser {
-    let info = GerritUser {
-        username: json_val["username"].as_str().unwrap_or_default().to_string(),
-        email: json_val["email"].as_str().unwrap_or_default().to_string(),
-        full_name: json_val["name"].as_str().unwrap_or_default().to_string(),
-    };
-    return info;
-}
-
-
 
 pub fn get_gerrit_change(args: Args) -> GerritChange {
 
     let change = GerritChange {
         // FIXME
         conn: parse_gerrit_ssh_params_from_git_url(&args.url.unwrap_or("git@github.com:ponsheng/gerrit-reviewers.git".to_string())),
-        change_id: args.change.unwrap_or("NA".to_string())
+        change_id: args.change.unwrap_or("NA".to_string()),
     };
     change
 }
@@ -310,13 +269,15 @@ pub fn get_reviewers(change: &GerritChange) -> Vec<GerritUser> {
     let reviews = query_reviews(remote_url, &more_args);
 
     let mut reviewer_list = Vec::new();
+
     for r in reviews {
         if r.get("allReviewers").is_none() {
             continue;
         }
         let reviewers = r["allReviewers"].as_array().unwrap();
         for reviewer in reviewers {
-            reviewer_list.push(get_git_user(reviewer));
+            let user = users::get_git_user(reviewer);
+            reviewer_list.push(user);
         }
     }
     reviewer_list
@@ -343,7 +304,7 @@ pub fn get_user_recent_reviewers(conn: &GitUrl, user: &GerritUser) -> Vec<Gerrit
         }
         let reviewers = r["allReviewers"].as_array().unwrap();
         for reviewer in reviewers {
-            reviewer_set.insert(get_git_user(reviewer));
+            reviewer_set.insert(users::get_git_user(reviewer));
         }
     }
 

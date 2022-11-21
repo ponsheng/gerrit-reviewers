@@ -19,7 +19,7 @@ pub fn run_command_exc(cmd_vec : Vec<&str>) -> Result<String, String> {
 
     let out = str::from_utf8(&result.stdout).expect("Invalid UTF8-8 sequence");
     // TODO json pretty print
-    trace!("{}", out);
+    trace!("Stdout: {}", out);
     Ok(out.to_string())
 }
 
